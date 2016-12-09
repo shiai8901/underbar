@@ -357,6 +357,16 @@
   // already computed the result for the given argument and return that value
   // instead if possible.
   _.memoize = function(func) {
+    var caches = {};
+
+    return function() {
+      var key = JSON.stringify(arguments);
+      if (caches[key] == undefined) {
+        caches[key] = func.apply(this, arguments);       
+      } 
+      return caches[key];
+    };
+
   };
 
   // Delays a function for the given number of milliseconds, and then calls
@@ -407,7 +417,13 @@
   // Calls the method named by functionOrKey on each value in the list.
   // Note: You will need to learn a bit about .apply to complete this.
   _.invoke = function(collection, functionOrKey, args) {
-    
+    for(var i = 0; i < collection.length; i++) {
+      if (typeof functionOrKey !== 'function') {
+        functionOrKey = collection[i][functionOrKey];
+      }         
+      collection[i] = functionOrKey.apply(collection[i]);
+    }
+    return collection;
   };
 
   // Sort the object's values by a criterion produced by an iterator.
@@ -415,15 +431,32 @@
   // of that string. For example, _.sortBy(people, 'name') should sort
   // an array of people by their name.
   _.sortBy = function(collection, iterator) {
-    for (var i = 0; i < collection.length - 1; i++) {
-      for (var j = i + 1; j < collection.length - 1; j++) {
-        if (iterator(collection[j]) > iterator(collection[j+1])) {
-          var tmp = collection[j];
-          collection[j] = collection[j + 1];
-          collection[j + 1] = tmp;
+    
+    if (typeof iterator === 'string') {
+      for (var i = 0; i < collection.length - 1; i++) {
+        for (var j = i + 1; j < collection.length; j++) {
+          if (typeof collection[i] === 'undefined' || collection[i][iterator] > collection[j][iterator]) {
+            var tmp = collection[i];
+            collection[i] = collection[j];
+            collection[j] = tmp;
+          }
+        }        
+      }
+    }
+
+    if (typeof iterator === 'function') {
+      for (var i = 0; i < collection.length - 1; i++) {
+        for (var j = i + 1; j < collection.length; j++) {
+          if (typeof collection[i] === 'undefined' || iterator(collection[i]) > iterator(collection[j])) {
+            var tmp = collection[i];
+            collection[i] = collection[j];
+            collection[j] = tmp;
+          }
         }
       }
     }
+    
+    return collection;
   };
 
   // Zip together two or more arrays with elements of the same index
@@ -432,6 +465,26 @@
   // Example:
   // _.zip(['a','b','c','d'], [1,2,3]) returns [['a',1], ['b',2], ['c',3], ['d',undefined]]
   _.zip = function() {
+    var result = [];
+    var maxLength = 0;
+
+    for (var i = 0; i < arguments.length; i++) {
+      maxLength = Math.max(maxLength, arguments[i].length);
+    }
+
+    for (var i  = 0; i < maxLength; i++) {
+      var tmp = [];
+      for (var j = 0; j < arguments.length; j++) {
+        if (arguments[j][i]) {
+          tmp.push(arguments[j][i]);
+        } else {
+          tmp.push(undefined);
+        }
+      }
+      result.push(tmp);
+    }
+
+    return result;
   };
 
   // Takes a multidimensional array and converts it to a one-dimensional array.
@@ -439,16 +492,77 @@
   //
   // Hint: Use Array.isArray to check if something is an array
   _.flatten = function(nestedArray, result) {
+    result = []; 
+
+    for (var key in nestedArray) {
+      if (Array.isArray(nestedArray[key])) {
+        flatten(nestedArray[key]);
+      } else {
+        result.push(nestedArray[key]);
+      }      
+    }
+    // flatten() is a recursive function
+    function flatten(arr) {
+      for (var key in arr) {
+        if (Array.isArray(arr[key])) {
+          flatten(arr[key]);
+        } else {
+          result.push(arr[key]);
+        }
+      }
+    }
+    return result;
   };
 
   // Takes an arbitrary number of arrays and produces an array that contains
   // every item shared between all the passed-in arrays.
   _.intersection = function() {
+    if (arguments.length === 1) {
+      return arguments;
+    } else {
+      for (var i = 1; i < arguments.length; i ++) {
+        intersectionOfTwo(arguments[0], arguments[i]);
+      }
+    }
+    return arguments[0];
+
+    function intersectionOfTwo(arr1, arr2) {
+      var times = 0;
+      for (var i = 0; i < arr1.length + times; i++) {
+        var index = _.indexOf(arr2, arr1[i-times]); 
+        if (index < 0) {
+          arr1.splice(i - times, 1);
+          times++;
+        }
+      }
+      return arr1;
+    }
+
   };
 
   // Take the difference between one array and a number of other arrays.
   // Only the elements present in just the first array will remain.
   _.difference = function(array) {
+    if (arguments.length === 1) {
+      return arguments;
+    } else {
+      for (var i = 1; i < arguments.length; i++) {
+        differenceOfTwo(arguments[0], arguments[i]);
+      }
+    }
+    return arguments[0];
+
+    function differenceOfTwo(arr1, arr2) {
+      var times = 0;
+      for (var i = 0; i < arr1.length + times; i++) {
+        var index = _.indexOf(arr2, arr1[i-times]); 
+        if (index > -1) {
+          arr1.splice(i - times, 1);
+          times++;
+        }
+      }
+      return arr1;
+    }
   };
 
   // Returns a function, that, when invoked, will only be triggered at most once
